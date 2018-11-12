@@ -36,6 +36,63 @@ int32_t parseCmdArgs(int32_t argc, char ** argv, std::string & fileName)
 }
 
 /**
+ * Apply a sobel filter to grayscale values
+ *
+ * @param format       The file format
+ * @param imageWidth   The width of the image to write
+ * @param imageHeight  The height of the image to write
+ * @param bitsPerPixel The bits per pixel of the image to write
+ * @param pixelData    The interleaved RGB pixel data
+ *
+ * @return Flag denoting success or failure
+ */
+int32_t applySobelFilterGrayscale(const FREE_IMAGE_FORMAT & format, 
+                                  uint32_t imageWidth, 
+                                  uint32_t imageHeight, 
+                                  uint32_t bitsPerPixel, 
+                                  const BYTE * pixelData)
+{
+    // Convert pixel data to grayscale
+    BYTE * grayPixelData = new BYTE[imageWidth * imageHeight];
+
+    if(bitsPerPixel == 8)
+    {
+        memcpy(grayPixelData, pixelData, imageWidth * imageHeight * sizeof(BYTE));
+    }
+    else
+    {
+        for(uint32_t y = 0; y < imageHeight; y++)
+        {
+            for(uint32_t x = 0; x < imageWidth; x++)
+            {
+                BYTE r = pixelData[(y * imageHeight) + (x * 3)];
+                BYTE g = pixelData[(y * imageHeight) + (x * 3) + 1];
+                BYTE b = pixelData[(y * imageHeight) + (x * 3) + 2];
+
+                grayPixelData[(y * imageHeight) + x] = (r + g + b) / 3;
+            }
+        }
+    }
+
+    // Apply sobel filter
+
+    // Output results
+    std::string outputFileName = "grayscale_output.png";
+
+    int32_t status = saveImage(outputFileName, format, imageWidth, imageHeight, bitsPerPixel, pixelData);
+
+    if(status == EXIT_FAILURE)
+    {
+        return EXIT_FAILURE;
+    }
+
+    // Cleanup
+    delete [] grayPixelData;
+
+    return EXIT_SUCCESS;
+}
+
+/**
  * Entry point to the application
  *
  * @param argc The number of command-line arguments
@@ -81,13 +138,32 @@ int32_t main(int32_t argc, char ** argv)
 
     if(status == EXIT_FAILURE)
     {
+        FreeImage_Unload(bitmap);
         return EXIT_FAILURE;
     }
 
     /*
      * Load the pixel data
      */
-    BYTE * pixelData = new BYTE[imageWidth * imageHeight * (bitsPerPixel / 8)];
+    BYTE * pixelData;
+    
+    // Check if 8 or 24 bits per pixel
+    if(bitsPerPixel == 8 || bitsPerPixel == 24)
+    {
+        pixelData = new BYTE[imageWidth * imageHeight * (bitsPerPixel / 8)];
+    }
+    // Check if 32 bits per pixel
+    else if(bitsPerPixel == 32)
+    {
+        pixelData = new BYTE[imageWidth * imageHeight * 3];
+    }
+    // Unsupported pixel format
+    else
+    {
+        std::cerr << "Unsupported pixel format!" << std::endl;
+        
+        return EXIT_FAILURE;
+    }
 
     status = loadPixelData(&bitmap, imageWidth, imageHeight, bitsPerPixel, pixelData);
 
@@ -97,19 +173,9 @@ int32_t main(int32_t argc, char ** argv)
     }
 
     /*
-     * Apply sobel filter to grayscale image
+     * Apply sobel filter to grayscale values
      */
-    for(uint32_t y = 0; y < imageHeight; y++)
-    {
-        for(uint32_t x = 0; x < imageWidth; x++)
-        {
-            //pixelData[(y * imageHeight) + x] = max(0, pixelData[(y * imageHeight) + x] - 50);
-        }
-    }
-
-    std::string outputFileName = "test.png";
-
-    status = saveImage(outputFileName, format, imageWidth, imageHeight, bitsPerPixel, pixelData);
+    status = applySobelFilterGrayscale(format, imageWidth, imageHeight, bitsPerPixel, pixelData);
 
     if(status == EXIT_FAILURE)
     {
@@ -117,7 +183,7 @@ int32_t main(int32_t argc, char ** argv)
     }
 
     /*
-     * Apply sobel filter to hue channel of HSV image
+     * Apply sobel filter to HSV channels
      */
 
     /*
@@ -126,4 +192,6 @@ int32_t main(int32_t argc, char ** argv)
     FreeImage_Unload(bitmap);
 
     delete [] pixelData;
+
+    return EXIT_SUCCESS;
 }
