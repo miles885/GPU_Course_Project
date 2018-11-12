@@ -42,7 +42,7 @@ int32_t parseCmdArgs(int32_t argc, char ** argv, std::string & fileName)
  * @param imageWidth   The width of the image to write
  * @param imageHeight  The height of the image to write
  * @param bitsPerPixel The bits per pixel of the image to write
- * @param pixelData    The interleaved RGB pixel data
+ * @param pixelData    The channel separated RGB pixel data
  *
  * @return Flag denoting success or failure
  */
@@ -53,7 +53,8 @@ int32_t applySobelFilterGrayscale(const FREE_IMAGE_FORMAT & format,
                                   const BYTE * pixelData)
 {
     // Convert pixel data to grayscale
-    BYTE * grayPixelData = new BYTE[imageWidth * imageHeight];
+    uint32_t imageSize = imageWidth * imageHeight;
+    BYTE * grayPixelData = new BYTE[imageSize];
 
     if(bitsPerPixel == 8)
     {
@@ -65,11 +66,11 @@ int32_t applySobelFilterGrayscale(const FREE_IMAGE_FORMAT & format,
         {
             for(uint32_t x = 0; x < imageWidth; x++)
             {
-                BYTE r = pixelData[(y * imageHeight) + (x * 3)];
-                BYTE g = pixelData[(y * imageHeight) + (x * 3) + 1];
-                BYTE b = pixelData[(y * imageHeight) + (x * 3) + 2];
+                BYTE r = pixelData[(y * imageWidth) + x];
+                BYTE g = pixelData[(y * imageWidth) + imageSize + x];
+                BYTE b = pixelData[(y * imageWidth) + (imageSize * 2) + x];
 
-                grayPixelData[(y * imageHeight) + x] = (r + g + b) / 3;
+                grayPixelData[(y * imageWidth) + x] = (r + g + b) / 3;
             }
         }
     }
@@ -79,7 +80,7 @@ int32_t applySobelFilterGrayscale(const FREE_IMAGE_FORMAT & format,
     // Output results
     std::string outputFileName = "grayscale_output.png";
 
-    int32_t status = saveImage(outputFileName, format, imageWidth, imageHeight, bitsPerPixel, pixelData);
+    int32_t status = saveImage(outputFileName, format, imageWidth, imageHeight, 8, grayPixelData);
 
     if(status == EXIT_FAILURE)
     {

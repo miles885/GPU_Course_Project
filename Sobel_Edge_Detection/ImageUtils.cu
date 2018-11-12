@@ -89,7 +89,7 @@ int32_t getImageInfo(FIBITMAP ** bitmap, uint32_t & imageWidth, uint32_t & image
 /**
  * Loads the pixel data into a buffer
  *
- * @param pixelData The interleaved RGB pixel data
+ * @param pixelData The channel separated RGB pixel data
  *
  * @return Flag denoting success or failure
  */
@@ -97,6 +97,7 @@ __host__
 int32_t loadPixelData(FIBITMAP ** bitmap, uint32_t imageWidth, uint32_t imageHeight, uint32_t bitsPerPixel, BYTE * pixelData)
 {
     // Set pixel data
+    uint32_t imageSize = imageWidth * imageHeight;
     uint32_t bytesPerPixel = bitsPerPixel / 8;
 
     for(uint32_t y = 0; y < imageHeight; y++)
@@ -113,9 +114,9 @@ int32_t loadPixelData(FIBITMAP ** bitmap, uint32_t imageWidth, uint32_t imageHei
             // Check if 24 or 32 bits per pixel
             else if(bitsPerPixel == 24 || bitsPerPixel == 32)
             {
-                pixelData[(y * imageWidth) + (x * 3)] = bits[FI_RGBA_RED];
-                pixelData[(y * imageWidth) + (x * 3) + 1] = bits[FI_RGBA_GREEN];
-                pixelData[(y * imageWidth) + (x * 3) + 2] = bits[FI_RGBA_BLUE];
+                pixelData[(y * imageWidth) + x] = bits[FI_RGBA_RED];
+                pixelData[(y * imageWidth) + imageSize + x] = bits[FI_RGBA_GREEN];
+                pixelData[(y * imageWidth) + (imageSize * 2) + x] = bits[FI_RGBA_BLUE];
             }
 
             bits += bytesPerPixel;
@@ -133,7 +134,7 @@ int32_t loadPixelData(FIBITMAP ** bitmap, uint32_t imageWidth, uint32_t imageHei
  * @param imageWidth   The width of the image to write
  * @param imageHeight  The height of the image to write
  * @param bitsPerPixel The bits per pixel of the image to write
- * @param pixelData    The interleaved RGB pixel data
+ * @param pixelData    The channel separated RGB pixel data
  *
  * @return Flag denoting success or failure
  */
@@ -154,6 +155,7 @@ int32_t saveImage(const std::string & fileName,
     }
 
     // Set bitmap color data
+    uint32_t imageSize = imageWidth * imageHeight;
     RGBQUAD color;
 
     for(uint32_t y = 0; y < imageHeight; y++)
@@ -170,9 +172,9 @@ int32_t saveImage(const std::string & fileName,
             // Check if 24 or 32 bits per pixel
             else if(bitsPerPixel == 24 || bitsPerPixel == 32)
             {
-                color.rgbRed = pixelData[(y * imageWidth) + (x * 3)];
-                color.rgbGreen = pixelData[(y * imageWidth) + (x * 3) + 1];
-                color.rgbBlue = pixelData[(y * imageWidth) + (x * 3) + 2];
+                color.rgbRed = pixelData[(y * imageWidth) + x];
+                color.rgbGreen = pixelData[(y * imageWidth) + imageSize + x];
+                color.rgbBlue = pixelData[(y * imageWidth) + (imageSize * 2) + x];
             }
 
             FreeImage_SetPixelColor(bitmap, x, y, &color);
