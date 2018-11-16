@@ -91,6 +91,8 @@ int32_t applyFilterGray(const FREE_IMAGE_FORMAT & format,
     {
         cudaFreeHost(grayPixelData);
     }
+
+    return EXIT_SUCCESS;
 }
 
 /**

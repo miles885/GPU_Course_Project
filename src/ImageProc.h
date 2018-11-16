@@ -17,10 +17,20 @@ enum ImageFilter
 };
 
 __host__
-void applyFilterCPU(uint32_t imageWidth, uint32_t imageHeight, const BYTE * pixelData, BYTE * outputPixelData);
+void applyFilterCPU(uint32_t imageWidth, 
+                    uint32_t imageHeight, 
+                    const int32_t * filterX, 
+                    const int32_t * filterY, 
+                    const BYTE * pixelData, 
+                    BYTE * outputPixelData);
 
 __global__
-void applyFilterGPU(uint32_t imageWidth, uint32_t imageHeight, const BYTE * pixelData, BYTE * outputPixelData);
+void applyFilterGPU(uint32_t imageWidth, 
+                    uint32_t imageHeight, 
+                    const int32_t * filterX, 
+                    const int32_t * filterY, 
+                    const BYTE * pixelData, 
+                    BYTE * outputPixelData);
 
 __host__
 int32_t applyFilter(const FREE_IMAGE_FORMAT & format,
