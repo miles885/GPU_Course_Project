@@ -101,15 +101,15 @@ int32_t applyFilter(const FREE_IMAGE_FORMAT & format,
 
     // Host memory
     BYTE * h_outputPixelData;
-    int32_t * h_filterX;
-    int32_t * h_filterY;
+    const int32_t * h_filterX;
+    const int32_t * h_filterY;
 
     // Set filter data
-    switch (filter)
+    switch(filter)
     {
         case SOBEL:
-            h_filterX = const_cast<int32_t *>(SOBEL_X);
-            h_filterY = const_cast<int32_t *>(SOBEL_Y);
+            h_filterX = SOBEL_X;
+            h_filterY = SOBEL_Y;
             break;
         default:
             break;
@@ -140,9 +140,12 @@ int32_t applyFilter(const FREE_IMAGE_FORMAT & format,
         checkCudaErrors(cudaMalloc((void **) &d_outputPixelData, imageSizeBytes));
 
         // Copy pixel data to device
-        cudaMemcpy(d_pixelData, pixelData, imageSizeBytes, cudaMemcpyHostToDevice);
+        checkCudaErrors(cudaMemcpy(d_pixelData, pixelData, imageSizeBytes, cudaMemcpyHostToDevice));
 
         //TODO: Execute kernel
+
+        // Copy pixel data to host
+        checkCudaErrors(cudaMemcpy(h_outputPixelData, d_outputPixelData, imageSizeBytes, cudaMemcpyDeviceToHost));
 
         // Cleanup
         checkCudaErrors(cudaFree(d_pixelData));
@@ -166,7 +169,7 @@ int32_t applyFilter(const FREE_IMAGE_FORMAT & format,
     }
     else
     {
-        cudaFreeHost(h_outputPixelData);
+        checkCudaErrors(cudaFreeHost(h_outputPixelData));
     }
 
     return EXIT_SUCCESS;
