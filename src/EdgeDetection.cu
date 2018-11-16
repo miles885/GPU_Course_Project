@@ -7,8 +7,8 @@
 #include <cuda_runtime.h>
 
 #include "helper_cuda.h"
+#include "ImageProc.h"
 #include "ImageUtils.h"
-#include "Sobel.h"
 
 /**
  * Parses the command-line arguments
@@ -37,77 +37,60 @@ int32_t parseCmdArgs(int32_t argc, char ** argv, std::string & fileName)
 }
 
 /**
- * Apply a Sobel filter to grayscale values
+ * Converts pixel data to grayscale and applies a filter using the CPU or GPU
  *
- * @param format       The file format
- * @param imageWidth   The width of the image to write
- * @param imageHeight  The height of the image to write
- * @param bitsPerPixel The bits per pixel of the image to write
- * @param pixelData    The channel separated RGB pixel data
- * @param useCPU       Flag denoting whether to use CPU or GPU
+ * @param format      The file format
+ * @param imageWidth  The width of the image to write
+ * @param imageHeight The height of the image to write
+ * @param filter      The type of image filter to use
+ * @param pixelData   The channel-separated pixel data
+ * @param useCPU      Flag denoting whether to use the CPU or GPU
  *
  * @return Flag denoting success or failure
  */
-int32_t applySobelFilterGrayscale(const FREE_IMAGE_FORMAT & format, 
-                                  uint32_t imageWidth, 
-                                  uint32_t imageHeight, 
-                                  uint32_t bitsPerPixel, 
-                                  const BYTE * pixelData, 
-                                  bool useCPU)
+__host__
+int32_t applyFilterGray(const FREE_IMAGE_FORMAT & format,
+                        uint32_t imageWidth,
+                        uint32_t imageHeight,
+                        uint32_t bitsPerPixel,
+                        ImageFilter filter, 
+                        const BYTE * pixelData, 
+                        bool useCPU)
 {
-    // Convert pixel data to grayscale
     uint32_t imageSize = imageWidth * imageHeight;
 
-    BYTE * h_grayPixelData = new BYTE[imageSize];
-    BYTE * h_outputPixelData = new BYTE[imageSize];
-
-    if(bitsPerPixel == 8)
-    {
-        memcpy(h_grayPixelData, pixelData, imageWidth * imageHeight * sizeof(BYTE));
-    }
-    else
-    {
-        for(uint32_t y = 0; y < imageHeight; y++)
-        {
-            for(uint32_t x = 0; x < imageWidth; x++)
-            {
-                BYTE r = pixelData[(y * imageWidth) + x];
-                BYTE g = pixelData[(y * imageWidth) + imageSize + x];
-                BYTE b = pixelData[(y * imageWidth) + (imageSize * 2) + x];
-
-                h_grayPixelData[(y * imageWidth) + x] = (r + g + b) / 3;
-            }
-        }
-    }
-
-    // Apply Sobel filter using CPU
+    // Allocate grayscale pixel memory
+    BYTE * grayPixelData;
+    
     if(useCPU)
     {
-        applySobelFilterCPU(imageWidth, imageHeight, h_grayPixelData, h_outputPixelData);
+        grayPixelData = new BYTE[imageSize];
     }
-    // Apply Sobel filter using GPU
     else
     {
-        //TODO: Setup device memory
-        //TODO: Execute kernel
-        //TODO: Cleanup device memory
+        checkCudaErrors(cudaMallocHost((void **) &grayPixelData, sizeof(BYTE) * imageSize, cudaHostAllocDefault));
     }
 
-    // Output results
-    std::string outputFileName = "grayscale_output.png";
-
-    int32_t status = saveImage(outputFileName, format, imageWidth, imageHeight, 8, h_outputPixelData);
+    // Convert RGB pixel data to grayscale
+    int32_t status = rgbToGray(imageWidth, imageHeight, bitsPerPixel, pixelData, grayPixelData);
 
     if(status == EXIT_FAILURE)
     {
         return EXIT_FAILURE;
     }
 
-    // Cleanup
-    delete [] h_grayPixelData;
-    delete [] h_outputPixelData;
+    // Apply filter
+    status = applyFilter(format, imageWidth, imageHeight, filter, grayPixelData, useCPU);
 
-    return EXIT_SUCCESS;
+    // Cleanup
+    if(useCPU)
+    {
+        delete [] grayPixelData;
+    }
+    else
+    {
+        cudaFreeHost(grayPixelData);
+    }
 }
 
 /**
@@ -191,10 +174,10 @@ int32_t main(int32_t argc, char ** argv)
     }
 
     /*
-     * Apply Sobel filter to grayscale values
+     * Apply Sobel filter to RGB pixel values
      */
     // Apply Sobel filter using CPU
-    status = applySobelFilterGrayscale(format, imageWidth, imageHeight, bitsPerPixel, pixelData, true);
+    status = applyFilterGray(format, imageWidth, imageHeight, bitsPerPixel, SOBEL, pixelData, true);
 
     if(status == EXIT_FAILURE)
     {

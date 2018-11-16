@@ -89,7 +89,11 @@ int32_t getImageInfo(FIBITMAP ** bitmap, uint32_t & imageWidth, uint32_t & image
 /**
  * Loads the pixel data into a buffer
  *
- * @param pixelData The channel separated RGB pixel data
+ * @param bitmap       The image data
+ * @param imageWidth   The width of the image to write
+ * @param imageHeight  The height of the image to write
+ * @param bitsPerPixel The bits per pixel of the image to write
+ * @param pixelData    The channel-separated pixel data
  *
  * @return Flag denoting success or failure
  */
@@ -134,7 +138,7 @@ int32_t loadPixelData(FIBITMAP ** bitmap, uint32_t imageWidth, uint32_t imageHei
  * @param imageWidth   The width of the image to write
  * @param imageHeight  The height of the image to write
  * @param bitsPerPixel The bits per pixel of the image to write
- * @param pixelData    The channel separated RGB pixel data
+ * @param pixelData    The channel-separated pixel data
  *
  * @return Flag denoting success or failure
  */
@@ -191,6 +195,44 @@ int32_t saveImage(const std::string & fileName,
 
     // Cleanup
     FreeImage_Unload(bitmap);
+
+    return EXIT_SUCCESS;
+}
+
+/**
+ * Convert channel separated RGB pixel data to grayscale pixel data
+ *
+ * @param imageWidth    The width of the image to write
+ * @param imageHeight   The height of the image to write
+ * @param bitsPerPixel  The bits per pixel of the image to write
+ * @param rgbPixelData  The channel-separated pixel data
+ * @param grayPixelData The single channel grayscale pixel data
+ *
+ * @return Flag denoting success or failure
+ */
+__host__
+int32_t rgbToGray(uint32_t imageWidth, uint32_t imageHeight, uint32_t bitsPerPixel, const BYTE * pixelData, BYTE * grayPixelData)
+{
+    uint32_t imageSize = imageWidth * imageHeight;
+
+    if(bitsPerPixel == 8)
+    {
+        memcpy(grayPixelData, pixelData, imageWidth * imageHeight * sizeof(BYTE));
+    }
+    else
+    {
+        for(uint32_t y = 0; y < imageHeight; y++)
+        {
+            for(uint32_t x = 0; x < imageWidth; x++)
+            {
+                BYTE r = pixelData[(y * imageWidth) + x];
+                BYTE g = pixelData[(y * imageWidth) + imageSize + x];
+                BYTE b = pixelData[(y * imageWidth) + (imageSize * 2) + x];
+
+                grayPixelData[(y * imageWidth) + x] = (r + g + b) / 3;
+            }
+        }
+    }
 
     return EXIT_SUCCESS;
 }

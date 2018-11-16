@@ -25,4 +25,7 @@ int32_t saveImage(const std::string & fileName,
                   const uint32_t bitsPerPixel, 
                   const BYTE * pixelData);
 
+__host__
+int32_t rgbToGray(uint32_t imageWidth, uint32_t imageHeight, uint32_t bitsPerPixel, const BYTE * pixelData, BYTE * grayPixelData);
+
 #endif
