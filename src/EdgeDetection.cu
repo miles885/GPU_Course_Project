@@ -39,36 +39,42 @@ int32_t parseCmdArgs(int32_t argc, char ** argv, std::string & fileName)
 /**
  * Converts pixel data to grayscale and applies a filter using the CPU or GPU
  *
- * @param format      The file format
- * @param imageWidth  The width of the image to write
- * @param imageHeight The height of the image to write
- * @param filter      The type of image filter to use
- * @param pixelData   The channel-separated pixel data
- * @param useCPU      Flag denoting whether to use the CPU or GPU
+ * @param imageWidth     The width of the image to write
+ * @param imageHeight    The height of the image to write
+ * @param bitsPerPixel   The bits per pixel of the image to write
+ * @param pixelData      The channel-separated pixel data
+ * @param filter         The type of image filter to use
+ * @param outputFilename The output file name
+ * @param outputFormat   The output file format
+ * @param useCPU         Flag denoting whether to use the CPU or GPU
  *
  * @return Flag denoting success or failure
  */
 __host__
-int32_t applyFilterGray(const FREE_IMAGE_FORMAT & format,
-                        uint32_t imageWidth,
+int32_t applyFilterGray(uint32_t imageWidth,
                         uint32_t imageHeight,
                         uint32_t bitsPerPixel,
-                        ImageFilter filter, 
                         const BYTE * pixelData, 
+                        ImageFilter filter,
+                        const char * outputFilename, 
+                        const FREE_IMAGE_FORMAT & outputFormat, 
                         bool useCPU)
 {
     uint32_t imageSize = imageWidth * imageHeight;
 
     // Allocate grayscale pixel memory
     BYTE * grayPixelData;
+    BYTE * outputPixelData;
     
     if(useCPU)
     {
         grayPixelData = new BYTE[imageSize];
+        outputPixelData = new BYTE[imageSize];
     }
     else
     {
         checkCudaErrors(cudaMallocHost((void **) &grayPixelData, sizeof(BYTE) * imageSize, cudaHostAllocDefault));
+        checkCudaErrors(cudaMallocHost((void **) &outputPixelData, sizeof(BYTE) * imageSize, cudaHostAllocDefault));
     }
 
     // Convert RGB pixel data to grayscale
@@ -80,16 +86,26 @@ int32_t applyFilterGray(const FREE_IMAGE_FORMAT & format,
     }
 
     // Apply filter
-    status = applyFilter(format, imageWidth, imageHeight, filter, grayPixelData, useCPU);
+    status = applyFilter(imageWidth, imageHeight, filter, grayPixelData, outputPixelData, useCPU);
+
+    // Output results
+    status = saveImage(outputFilename, outputFormat, imageWidth, imageHeight, 8, outputPixelData);
+
+    if(status == EXIT_FAILURE)
+    {
+        return EXIT_FAILURE;
+    }
 
     // Cleanup
     if(useCPU)
     {
         delete [] grayPixelData;
+        delete [] outputPixelData;
     }
     else
     {
         checkCudaErrors(cudaFreeHost(grayPixelData));
+        checkCudaErrors(cudaFreeHost(outputPixelData));
     }
 
     return EXIT_SUCCESS;
@@ -116,6 +132,19 @@ int32_t main(int32_t argc, char ** argv)
     {
         return EXIT_FAILURE;
     }
+
+    /*
+     * Print device settings
+     */
+    cudaDeviceProp prop;
+    checkCudaErrors(cudaGetDeviceProperties(&prop, 0));
+
+    printf("***** Device Settings *****\n");
+    printf("Global memory: %zu\n", prop.totalGlobalMem);
+    printf("Shared memory per block: %zu\n", prop.sharedMemPerBlock);
+    printf("Max threads per block: %d\n", prop.maxThreadsPerBlock);
+    printf("Total constant memory: %zu\n", prop.totalConstMem);
+    printf("Registers per block: %zu\n\n", prop.regsPerBlock);
 
     /*
      * Load the image data
@@ -179,7 +208,7 @@ int32_t main(int32_t argc, char ** argv)
      * Apply Sobel filter to RGB pixel values
      */
     // Apply Sobel filter using CPU
-    status = applyFilterGray(format, imageWidth, imageHeight, bitsPerPixel, SOBEL, pixelData, true);
+    status = applyFilterGray(imageWidth, imageHeight, bitsPerPixel, pixelData, SOBEL, "sobel_output_CPU.png", format, true);
 
     if(status == EXIT_FAILURE)
     {
@@ -192,6 +221,7 @@ int32_t main(int32_t argc, char ** argv)
      * Apply Sobel filter to HSV channels
      */
     // Apply Sobel filter using CPU
+    status = applyFilterGray(imageWidth, imageHeight, bitsPerPixel, pixelData, SOBEL, "sobel_output_GPU.png", format, false);
 
     // Apply Sobel filter using GPU
 

@@ -18,7 +18,7 @@ __host__
 int32_t loadPixelData(FIBITMAP ** bitmap, uint32_t imageWidth, uint32_t imageHeight, uint32_t bitsPerPixel, BYTE * pixelData);
 
 __host__
-int32_t saveImage(const std::string & fileName,
+int32_t saveImage(const char * fileName,
                   const FREE_IMAGE_FORMAT & format, 
                   const uint32_t imageWidth, 
                   const uint32_t imageHeight, 

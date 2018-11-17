@@ -143,7 +143,7 @@ int32_t loadPixelData(FIBITMAP ** bitmap, uint32_t imageWidth, uint32_t imageHei
  * @return Flag denoting success or failure
  */
 __host__
-int32_t saveImage(const std::string & fileName,
+int32_t saveImage(const char * fileName,
                   const FREE_IMAGE_FORMAT & format, 
                   const uint32_t imageWidth, 
                   const uint32_t imageHeight, 
@@ -185,7 +185,7 @@ int32_t saveImage(const std::string & fileName,
         }
     }
 
-    uint32_t status = FreeImage_Save(format, bitmap, fileName.c_str(), 0);
+    uint32_t status = FreeImage_Save(format, bitmap, fileName, 0);
 
     if(status != 1)
     {

@@ -33,11 +33,11 @@ void applyFilterGPU(uint32_t imageWidth,
                     BYTE * outputPixelData);
 
 __host__
-int32_t applyFilter(const FREE_IMAGE_FORMAT & format,
-                    uint32_t imageWidth,
+int32_t applyFilter(uint32_t imageWidth,
                     uint32_t imageHeight, 
                     ImageFilter filter, 
                     const BYTE * pixelData, 
+                    BYTE * outputPixelData, 
                     bool useCPU);
 
 #endif

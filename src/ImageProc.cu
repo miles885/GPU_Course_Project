@@ -1,5 +1,7 @@
 #include "ImageProc.h"
 
+#include <iostream>
+
 #include "helper_cuda.h"
 
 //NOTE: The sobel algorithm and kernels were found on
@@ -27,13 +29,17 @@ void applyFilterCPU(uint32_t imageWidth,
                     const BYTE * pixelData, 
                     BYTE * outputPixelData)
 {
-    for(uint32_t y = 1; y <= (imageHeight - 2); y++)
+    for(uint32_t y = 1; y < (imageHeight - 1); y++)
     {
-        for(uint32_t x = 1; x <= (imageWidth - 2); x++)
+        for(uint32_t x = 1; x < (imageWidth - 1); x++)
         {
-            int32_t topRow[3] = {pixelData[((y - 1) * imageWidth) + (x - 1)], pixelData[((y - 1) * imageWidth) + x], pixelData[((y - 1) * imageWidth) + (x + 1)]};
-            int32_t midRow[3] = {pixelData[(y * imageWidth) + (x - 1)],       pixelData[(y * imageWidth) + x],       pixelData[(y * imageWidth) + (x + 1)]};
-            int32_t botRow[3] = {pixelData[((y + 1) * imageWidth) + (x - 1)], pixelData[((y + 1) * imageWidth) + x], pixelData[((y + 1) * imageWidth) + (x + 1)]};
+            uint32_t topRowOffset = ((y - 1) * imageWidth) + x;
+            uint32_t midRowOffset = (y * imageWidth) + x;
+            uint32_t botRowOffset = ((y + 1) * imageWidth) + x;
+
+            int32_t topRow[3] = {pixelData[topRowOffset - 1], pixelData[topRowOffset], pixelData[topRowOffset + 1]};
+            int32_t midRow[3] = {pixelData[midRowOffset - 1], pixelData[midRowOffset], pixelData[midRowOffset + 1]};
+            int32_t botRow[3] = {pixelData[botRowOffset - 1], pixelData[botRowOffset], pixelData[botRowOffset + 1]};
 
             int32_t pixelX = (filterX[0] * topRow[0]) + (filterX[1] * topRow[1]) + (filterX[2] * topRow[2]) +
                              (filterX[3] * midRow[0]) + (filterX[4] * midRow[1]) + (filterX[5] * midRow[2]) +
@@ -66,7 +72,7 @@ void applyFilterCPU(uint32_t imageWidth,
  *
  * @return None
  */
- __global__
+__global__
 void applyFilterGPU(uint32_t imageWidth, 
                     uint32_t imageHeight, 
                     const int32_t * filterX, 
@@ -74,33 +80,63 @@ void applyFilterGPU(uint32_t imageWidth,
                     const BYTE * pixelData, 
                     BYTE * outputPixelData)
 {
+    // Retrieve the thread index
+    const uint32_t x = (blockIdx.x * blockDim.x) + threadIdx.x;
+    const uint32_t y = (blockIdx.y * blockDim.y) + threadIdx.y;
 
+    //TODO: Put filter data into shared memory
+
+    // Check to make sure not at edge of image
+    if(x > 0 && x < imageWidth && y > 0 && y < imageHeight)
+    {
+        uint32_t topRowOffset = ((y - 1) * imageWidth) + x;
+        uint32_t midRowOffset = (y * imageWidth) + x;
+        uint32_t botRowOffset = ((y + 1) * imageWidth) + x;
+        
+        int32_t topRow[3] = {pixelData[topRowOffset - 1], pixelData[topRowOffset], pixelData[topRowOffset + 1]};
+        int32_t midRow[3] = {pixelData[midRowOffset - 1], pixelData[midRowOffset], pixelData[midRowOffset + 1]};
+        int32_t botRow[3] = {pixelData[botRowOffset - 1], pixelData[botRowOffset], pixelData[botRowOffset + 1]};
+
+        int32_t pixelX = (filterX[0] * topRow[0]) + (filterX[1] * topRow[1]) + (filterX[2] * topRow[2]) +
+                         (filterX[3] * midRow[0]) + (filterX[4] * midRow[1]) + (filterX[5] * midRow[2]) +
+                         (filterX[6] * botRow[0]) + (filterX[7] * botRow[1]) + (filterX[8] * botRow[2]);
+        
+        int32_t pixelY = (filterY[0] * topRow[0]) + (filterY[1] * topRow[1]) + (filterY[2] * topRow[2]) +
+                         (filterY[3] * midRow[0]) + (filterY[4] * midRow[1]) + (filterY[5] * midRow[2]) +
+                         (filterY[6] * botRow[0]) + (filterY[7] * botRow[1]) + (filterY[8] * botRow[2]);
+        
+        // Calculate magnitude (must use float version with Cuda)
+        int32_t mag = sqrt((float) (pixelX * pixelX) + (float) (pixelY * pixelY));
+
+        // Set output pixel value
+        //TODO: Use some pixel threshold for better results?
+        outputPixelData[(y * imageWidth) + x] = mag;
+    }
 }
 
 /**
  * Apply a filter to a set of pixel values using the CPU or GPU
  *
- * @param format      The file format
- * @param imageWidth  The width of the image to write
- * @param imageHeight The height of the image to write
- * @param filter      The type of image filter to use
- * @param pixelData   The single channel pixel data
- * @param useCPU      Flag denoting whether to use the CPU or GPU
+ * @param imageWidth      The width of the image to write
+ * @param imageHeight     The height of the image to write
+ * @param filter          The type of image filter to use
+ * @param pixelData       The single channel pixel data
+ * @param outputPixelData The filtered pixel data
+ * @param useCPU          Flag denoting whether to use the CPU or GPU
  *
  * @return Flag denoting success or failure
  */
 __host__
-int32_t applyFilter(const FREE_IMAGE_FORMAT & format, 
-                    uint32_t imageWidth, 
+int32_t applyFilter(uint32_t imageWidth, 
                     uint32_t imageHeight, 
                     ImageFilter filter, 
                     const BYTE * pixelData, 
+                    BYTE * outputPixelData, 
                     bool useCPU)
 {
     uint32_t imageSize = imageWidth * imageHeight;
 
     // Host memory
-    BYTE * h_outputPixelData;
     const int32_t * h_filterX;
     const int32_t * h_filterY;
 
@@ -110,6 +146,7 @@ int32_t applyFilter(const FREE_IMAGE_FORMAT & format,
         case SOBEL:
             h_filterX = SOBEL_X;
             h_filterY = SOBEL_Y;
+
             break;
         default:
             break;
@@ -118,58 +155,51 @@ int32_t applyFilter(const FREE_IMAGE_FORMAT & format,
     // Check to see if using the CPU
     if(useCPU)
     {
-        // Allocate memory
-        h_outputPixelData = new BYTE[imageSize];
-
         // Apply filter
-        applyFilterCPU(imageWidth, imageHeight, h_filterX, h_filterY, pixelData, h_outputPixelData);
+        applyFilterCPU(imageWidth, imageHeight, h_filterX, h_filterY, pixelData, outputPixelData);
     }
     // Using the GPU
     else
     {
         uint32_t imageSizeBytes = sizeof(BYTE) * imageSize;
 
-        // Allocate host memory
-        checkCudaErrors(cudaMallocHost((void **) &h_outputPixelData, imageSizeBytes, cudaHostAllocDefault));
-
         // Allocate device memory
+        int32_t * d_filterX;
+        int32_t * d_filterY;
+
         BYTE * d_pixelData;
         BYTE * d_outputPixelData;
+
+        checkCudaErrors(cudaMalloc((void **) &d_filterX, sizeof(int32_t) * 9));
+        checkCudaErrors(cudaMalloc((void **) &d_filterY, sizeof(int32_t) * 9));
 
         checkCudaErrors(cudaMalloc((void **) &d_pixelData, imageSizeBytes));
         checkCudaErrors(cudaMalloc((void **) &d_outputPixelData, imageSizeBytes));
 
-        // Copy pixel data to device
+        // Copy host memory to device
+        checkCudaErrors(cudaMemcpy(d_filterX, h_filterX, sizeof(int32_t) * 9, cudaMemcpyHostToDevice));
+        checkCudaErrors(cudaMemcpy(d_filterY, h_filterY, sizeof(int32_t) * 9, cudaMemcpyHostToDevice));
+
         checkCudaErrors(cudaMemcpy(d_pixelData, pixelData, imageSizeBytes, cudaMemcpyHostToDevice));
 
-        //TODO: Execute kernel
+        // Apply filter (kernel)
+        //TODO: Make block size configurable?
+        dim3 blockSize(16, 16);
+        dim3 gridSize(ceil((double) imageWidth / blockSize.x), ceil((double) imageHeight / blockSize.y));
 
-        // Copy pixel data to host
-        checkCudaErrors(cudaMemcpy(h_outputPixelData, d_outputPixelData, imageSizeBytes, cudaMemcpyDeviceToHost));
+        std::cout << "Grid X: " << gridSize.x << std::endl;
+        std::cout << "Grid Y: " << gridSize.y << std::endl;
+
+        applyFilterGPU<<<gridSize, blockSize>>>(imageWidth, imageHeight, d_filterX, d_filterY, d_pixelData, d_outputPixelData);
+        getLastCudaError("");
+
+        // Copy device memory to host
+        checkCudaErrors(cudaDeviceSynchronize());
+        checkCudaErrors(cudaMemcpy(outputPixelData, d_outputPixelData, imageSizeBytes, cudaMemcpyDeviceToHost));
 
         // Cleanup
         checkCudaErrors(cudaFree(d_pixelData));
         checkCudaErrors(cudaFree(d_outputPixelData));
-    }
-
-    // Output results
-    std::string outputFileName = "sobel_output.png";
-
-    int32_t status = saveImage(outputFileName, format, imageWidth, imageHeight, 8, h_outputPixelData);
-
-    if(status == EXIT_FAILURE)
-    {
-        return EXIT_FAILURE;
-    }
-
-    // Cleanup
-    if(useCPU)
-    {
-        delete[] h_outputPixelData;
-    }
-    else
-    {
-        checkCudaErrors(cudaFreeHost(h_outputPixelData));
     }
 
     return EXIT_SUCCESS;
