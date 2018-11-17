@@ -229,6 +229,7 @@ int32_t rgbToGray(uint32_t imageWidth, uint32_t imageHeight, uint32_t bitsPerPix
                 BYTE g = pixelData[(y * imageWidth) + imageSize + x];
                 BYTE b = pixelData[(y * imageWidth) + (imageSize * 2) + x];
 
+                // Average the RGB intensities
                 grayPixelData[(y * imageWidth) + x] = (r + g + b) / 3;
             }
         }

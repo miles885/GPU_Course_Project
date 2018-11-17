@@ -166,6 +166,8 @@ int32_t main(int32_t argc, char ** argv)
     uint32_t imageHeight;
     uint32_t bitsPerPixel;
 
+    printf("***** Image Info *****\n");
+
     status = getImageInfo(&bitmap, imageWidth, imageHeight, bitsPerPixel);
 
     if(status == EXIT_FAILURE)
@@ -205,7 +207,7 @@ int32_t main(int32_t argc, char ** argv)
     }
 
     /*
-     * Apply Sobel filter to RGB pixel values
+     * Apply filters to RGB pixel values
      */
     // Apply Sobel filter using CPU
     status = applyFilterGray(imageWidth, imageHeight, bitsPerPixel, pixelData, SOBEL, "sobel_output_CPU.png", format, true);
@@ -215,15 +217,24 @@ int32_t main(int32_t argc, char ** argv)
         return EXIT_FAILURE;
     }
 
+    //TODO: Apply different filters using CPU
+
     // Apply Sobel filter using GPU
+    status = applyFilterGray(imageWidth, imageHeight, bitsPerPixel, pixelData, SOBEL, "sobel_output_GPU.png", format, false);
+
+    if(status == EXIT_FAILURE)
+    {
+        return EXIT_FAILURE;
+    }
+
+    //TODO: Apply different filters using GPU
 
     /*
      * Apply Sobel filter to HSV channels
      */
-    // Apply Sobel filter using CPU
-    status = applyFilterGray(imageWidth, imageHeight, bitsPerPixel, pixelData, SOBEL, "sobel_output_GPU.png", format, false);
+    //TODO: Apply different filters using CPU
 
-    // Apply Sobel filter using GPU
+    //TODO: Apply different filters using GPU
 
     /*
      * Cleanup
