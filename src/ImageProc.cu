@@ -4,8 +4,8 @@
 
 #include "helper_cuda.h"
 
-//NOTE: The sobel algorithm and kernels were found on
-//      https://en.wikipedia.org/wiki/Sobel_operator
+//NOTE: A pseudocode implementation of the sobel algorithm was
+//      found at https://en.wikipedia.org/wiki/Sobel_operator
 //      under the "Pseduocode implementation" section
 
 /**
@@ -143,12 +143,23 @@ int32_t applyFilter(uint32_t imageWidth,
     // Set filter data
     switch(filter)
     {
+        case ROBERTS:
+            h_filterX = ROBERTS_X;
+            h_filterY = ROBERTS_Y;
+
+            break;
         case SOBEL:
             h_filterX = SOBEL_X;
             h_filterY = SOBEL_Y;
 
             break;
+        case PREWITT:
+            h_filterX = PREWITT_X;
+            h_filterY = PREWITT_Y;
+
+            break;
         default:
+            std::cerr << "Invalid filter type!" << std::endl;
             break;
     }
 

@@ -88,6 +88,11 @@ int32_t applyFilterGray(uint32_t imageWidth,
     // Apply filter
     status = applyFilter(imageWidth, imageHeight, filter, grayPixelData, outputPixelData, useCPU);
 
+    if(status == EXIT_FAILURE)
+    {
+        return EXIT_FAILURE;
+    }
+
     // Output results
     status = saveImage(outputFilename, outputFormat, imageWidth, imageHeight, 8, outputPixelData);
 
@@ -209,6 +214,14 @@ int32_t main(int32_t argc, char ** argv)
     /*
      * Apply filters to RGB pixel values
      */
+    // Apply Roberts filter using CPU
+    status = applyFilterGray(imageWidth, imageHeight, bitsPerPixel, pixelData, ROBERTS, "roberts_output_CPU.png", format, true);
+
+    if(status == EXIT_FAILURE)
+    {
+        return EXIT_FAILURE;
+    }
+
     // Apply Sobel filter using CPU
     status = applyFilterGray(imageWidth, imageHeight, bitsPerPixel, pixelData, SOBEL, "sobel_output_CPU.png", format, true);
 
@@ -217,10 +230,32 @@ int32_t main(int32_t argc, char ** argv)
         return EXIT_FAILURE;
     }
 
-    //TODO: Apply different filters using CPU
+    // Apply Prewitt filter using CPU
+    status = applyFilterGray(imageWidth, imageHeight, bitsPerPixel, pixelData, PREWITT, "prewitt_output_CPU.png", format, true);
+
+    if(status == EXIT_FAILURE)
+    {
+        return EXIT_FAILURE;
+    }
+
+    // Apply Roberts filter using GPU
+    status = applyFilterGray(imageWidth, imageHeight, bitsPerPixel, pixelData, ROBERTS, "roberts_output_GPU.png", format, false);
+
+    if(status == EXIT_FAILURE)
+    {
+        return EXIT_FAILURE;
+    }
 
     // Apply Sobel filter using GPU
     status = applyFilterGray(imageWidth, imageHeight, bitsPerPixel, pixelData, SOBEL, "sobel_output_GPU.png", format, false);
+
+    if(status == EXIT_FAILURE)
+    {
+        return EXIT_FAILURE;
+    }
+
+    // Apply Prewitt filter using GPU
+    status = applyFilterGray(imageWidth, imageHeight, bitsPerPixel, pixelData, PREWITT, "prewitt_output_GPU.png", format, false);
 
     if(status == EXIT_FAILURE)
     {
