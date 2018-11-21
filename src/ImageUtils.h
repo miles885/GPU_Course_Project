@@ -8,6 +8,14 @@
 
 #include "FreeImage.h"
 
+enum PixelType
+{
+    GRAY = 0,
+    HUE = 1,
+    SATURATION = 2,
+    VALUE = 3
+};
+
 __host__
 int32_t loadImage(const std::string & fileName, FREE_IMAGE_FORMAT & format, FIBITMAP ** bitmap);
 
@@ -26,6 +34,18 @@ int32_t saveImage(const char * fileName,
                   const BYTE * pixelData);
 
 __host__
-int32_t rgbToGray(uint32_t imageWidth, uint32_t imageHeight, uint32_t bitsPerPixel, const BYTE * pixelData, BYTE * grayPixelData);
+int32_t rgbToGray(uint32_t imageWidth, 
+                  uint32_t imageHeight, 
+                  uint32_t bitsPerPixel, 
+                  const BYTE * pixelData, 
+                  BYTE * outputPixelData);
+
+__host__
+int32_t rgbToHSV(uint32_t imageWidth, 
+                 uint32_t imageHeight, 
+                 uint32_t bitsPerPixel, 
+                 PixelType pixelType, 
+                 const BYTE * pixelData, 
+                 BYTE * outputPixelData);
 
 #endif

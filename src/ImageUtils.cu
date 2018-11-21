@@ -1,6 +1,11 @@
 #include "ImageUtils.h"
 
+#include <algorithm>
+#include <cmath>
 #include <iostream>
+
+//NOTE: The RGB to HSV math was found at https://en.wikipedia.org/wiki/HSL_and_HSV
+//      under the "Hue and Chroma", "Lightness", and "Saturation" sections
 
 /**
  * Loads image data from the specified file
@@ -202,22 +207,26 @@ int32_t saveImage(const char * fileName,
 /**
  * Convert channel separated RGB pixel data to grayscale pixel data
  *
- * @param imageWidth    The width of the image to write
- * @param imageHeight   The height of the image to write
- * @param bitsPerPixel  The bits per pixel of the image to write
- * @param rgbPixelData  The channel-separated pixel data
- * @param grayPixelData The single channel grayscale pixel data
+ * @param imageWidth      The width of the image to write
+ * @param imageHeight     The height of the image to write
+ * @param bitsPerPixel    The bits per pixel of the image to write
+ * @param rgbPixelData    The channel-separated pixel data
+ * @param outputPixelData The single channel pixel data
  *
  * @return Flag denoting success or failure
  */
 __host__
-int32_t rgbToGray(uint32_t imageWidth, uint32_t imageHeight, uint32_t bitsPerPixel, const BYTE * pixelData, BYTE * grayPixelData)
+int32_t rgbToGray(uint32_t imageWidth, 
+                  uint32_t imageHeight, 
+                  uint32_t bitsPerPixel, 
+                  const BYTE * pixelData, 
+                  BYTE * outputPixelData)
 {
     uint32_t imageSize = imageWidth * imageHeight;
 
     if(bitsPerPixel == 8)
     {
-        memcpy(grayPixelData, pixelData, imageWidth * imageHeight * sizeof(BYTE));
+        memcpy(outputPixelData, pixelData, imageSize * sizeof(BYTE));
     }
     else
     {
@@ -230,7 +239,102 @@ int32_t rgbToGray(uint32_t imageWidth, uint32_t imageHeight, uint32_t bitsPerPix
                 BYTE b = pixelData[(y * imageWidth) + (imageSize * 2) + x];
 
                 // Average the RGB intensities
-                grayPixelData[(y * imageWidth) + x] = (r + g + b) / 3;
+                outputPixelData[(y * imageWidth) + x] = (r + g + b) / 3;
+            }
+        }
+    }
+
+    return EXIT_SUCCESS;
+}
+
+/**
+ * Convert channel separated RGB pixel data to HSV pixel data
+ *
+ * @param imageWidth      The width of the image to write
+ * @param imageHeight     The height of the image to write
+ * @param bitsPerPixel    The bits per pixel of the image to write
+ * @param pixelType       The type of pixel data to apply the filter to
+ * @param rgbPixelData    The channel-separated pixel data
+ * @param outputPixelData The single channel pixel data
+ *
+ * @return Flag denoting success or failure
+ */
+__host__
+int32_t rgbToHSV(uint32_t imageWidth, 
+                 uint32_t imageHeight, 
+                 uint32_t bitsPerPixel, 
+                 PixelType pixelType, 
+                 const BYTE * pixelData, 
+                 BYTE * outputPixelData)
+{
+    uint32_t imageSize = imageWidth * imageHeight;
+
+    if(bitsPerPixel == 8)
+    {
+        memcpy(outputPixelData, pixelData, imageSize * sizeof(BYTE));
+    }
+    else
+    {
+        for(uint32_t y = 0; y < imageHeight; y++)
+        {
+            for(uint32_t x = 0; x < imageWidth; x++)
+            {
+                BYTE r = pixelData[(y * imageWidth) + x];
+                BYTE g = pixelData[(y * imageWidth) + imageSize + x];
+                BYTE b = pixelData[(y * imageWidth) + (imageSize * 2) + x];
+
+                float floatR = r / 255.0f;
+                float floatG = g / 255.0f;
+                float floatB = b / 255.0f;
+
+                float min = std::min(std::min(floatR, floatG), floatB);
+                float max = std::max(std::max(floatR, floatG), floatB);
+                float chroma = max - min;
+
+                float hue = 0;
+                float sat = 0;
+                float value = max;
+
+                if(chroma > 0)
+                {
+                    // Hue
+                    if(max == floatR)
+                    {
+                        hue = fmod((floatG - floatB) / chroma, 6.0f);
+                    }
+                    else if(max == floatG)
+                    {
+                        hue = ((floatB - floatR) / chroma) + 2.0f;
+                    }
+                    else
+                    {
+                        hue = ((floatR - floatG) / chroma) + 4.0f;
+                    }
+
+                    hue *= 60.0f;
+
+                    if(hue < 0)
+                    {
+                        hue += 360.0f;
+                    }
+
+                    // Saturation
+                    sat = chroma / max;
+                }
+
+                // Set output to pixel type
+                if(pixelType == HUE)
+                {
+                    outputPixelData[(y * imageWidth) + x] = (BYTE) (hue * 255.0f / 360.0f);
+                }
+                else if(pixelType == SATURATION)
+                {
+                    outputPixelData[(y * imageWidth) + x] = (BYTE) (sat * 255.0f);
+                }
+                else
+                {
+                    outputPixelData[(y * imageWidth) + x] = (BYTE) (value * 255.0f);
+                }
             }
         }
     }

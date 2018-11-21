@@ -194,12 +194,8 @@ int32_t applyFilter(uint32_t imageWidth,
         checkCudaErrors(cudaMemcpy(d_pixelData, pixelData, imageSizeBytes, cudaMemcpyHostToDevice));
 
         // Apply filter (kernel)
-        //TODO: Make block size configurable?
         dim3 blockSize(16, 16);
         dim3 gridSize(ceil((double) imageWidth / blockSize.x), ceil((double) imageHeight / blockSize.y));
-
-        std::cout << "Grid X: " << gridSize.x << std::endl;
-        std::cout << "Grid Y: " << gridSize.y << std::endl;
 
         applyFilterGPU<<<gridSize, blockSize>>>(imageWidth, imageHeight, d_filterX, d_filterY, d_pixelData, d_outputPixelData);
         getLastCudaError("");
