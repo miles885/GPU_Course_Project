@@ -2,13 +2,13 @@
 
 argc=$#
 
-if ! [ $argc -eq 2 ]; then
+if ! [ $argc -eq 1 ]; then
     echo "Usage:"
-    echo "run.sh numThreads blockSize"
+    echo "run.sh fileName"
 
     exit
 fi
 
 make clean
 make
-./assignment.exe $1 $2
+./project.exe $1
