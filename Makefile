@@ -1,13 +1,13 @@
-BIN = assignment.exe
+BIN = project.exe
 
 # Compiler flags
 CC = nvcc
 CC_FLAGS = -std=c++11
 
 # Sources
-SOURCES = assignment.cu \
-          npp_nvgraph.cu \
-          thrust.cu
+SOURCES = src/EdgeDetection.cu \
+          src/ImageProc.cu \
+          src/ImageUtils.cu
 
 # Objects
 OBJS = $(patsubst %.cpp, %.o, $(SOURCES))
@@ -15,19 +15,14 @@ OBJS := $(patsubst %.cu, %.o, $(SOURCES))
 
 #Includes
 INC = -I/usr/include \
-      -I../common/inc \
-      -I./common/FreeImage/include \
-      -I./common/UtilNPP
+      -I./inc \
+      -I./src
 
 # Libraries
 LIB_DIRS = -L/usr/local/cuda/lib64 \
-           -L./common/FreeImage/lib/linux/x86_64
+           -L./lib
 
 LIBS = -lcudart \
-       -lnppc \
-       -lnppisu \
-       -lnppial \
-       -lnvgraph \
        -lfreeimage
 
 .PHONY: all
