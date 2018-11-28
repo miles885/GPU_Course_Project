@@ -19,29 +19,34 @@
 //            http://www.openclprogrammingguide.com
 //
 
+const uint32_t BLOCK_SIZE_X = 16;
+const uint32_t BLOCK_SIZE_Y = 16;
+
+const uint32_t FILTER_SIZE = 9;
+
 // Smaller effective area makes it more susceptible to noise
-const int32_t ROBERTS_X[9] = {0, 0, -1, 
-                              0, 1,  0, 
-                              0, 0,  0};
-const int32_t ROBERTS_Y[9] = {-1, 0, 0, 
-                               0, 1, 0, 
-                               0, 0, 0};
+const int32_t ROBERTS_X[FILTER_SIZE] = {0, 0, -1,
+                                        0, 1,  0, 
+                                        0, 0,  0};
+const int32_t ROBERTS_Y[FILTER_SIZE] = {-1, 0, 0,
+                                         0, 1, 0, 
+                                         0, 0, 0};
 
 // More sensitive to diagonal edges
-const int32_t SOBEL_X[9] = {1, 0, -1, 
-                            2, 0, -2, 
-                            1, 0, -1};
-const int32_t SOBEL_Y[9] = {-1, -2, -1, 
-                             0,  0,  0, 
-                             1,  2,  1};
+const int32_t SOBEL_X[FILTER_SIZE] = {1, 0, -1,
+                                      2, 0, -2, 
+                                      1, 0, -1};
+const int32_t SOBEL_Y[FILTER_SIZE] = {-1, -2, -1,
+                                       0,  0,  0, 
+                                       1,  2,  1};
 
 // More sensitive to vertical and horizontal edges
-const int32_t PREWITT_X[9] = {1, 0, -1, 
-                              1, 0, -1, 
-                              1, 0, -1};
-const int32_t PREWITT_Y[9] = {-1, -1, -1, 
-                               0,  0,  0, 
-                               1,  1,  1};
+const int32_t PREWITT_X[FILTER_SIZE] = {1, 0, -1,
+                                        1, 0, -1, 
+                                        1, 0, -1};
+const int32_t PREWITT_Y[FILTER_SIZE] = {-1, -1, -1,
+                                         0,  0,  0, 
+                                         1,  1,  1};
 
 enum ImageFilter
 {

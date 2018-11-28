@@ -146,15 +146,23 @@ void applyFilterSharedGPU(uint32_t imageWidth,
     const uint32_t x = (blockIdx.x * blockDim.x) + threadIdx.x;
     const uint32_t y = (blockIdx.y * blockDim.y) + threadIdx.y;
 
-    //TODO: Put filter data into shared memory
+    // Put filter data into shared memory
+    __shared__ int32_t shFilterX[FILTER_SIZE];
+    __shared__ int32_t shFilterY[FILTER_SIZE];
 
-    //__syncthreads();
+    if(threadIdx.x < FILTER_SIZE)
+    {
+        shFilterX[threadIdx.x] = filterX[threadIdx.x];
+        shFilterY[threadIdx.x] = filterY[threadIdx.x];
+    }
+
+    __syncthreads();
 
     // Check to make sure not at edge of image
     if(x > 0 && x < imageWidth && y > 0 && y < imageHeight)
     {
         // Apply the filter
-        applyFilter(imageWidth, imageHeight, filterX, filterY, x, y, pixelData, outputPixelData);
+        applyFilter(imageWidth, imageHeight, shFilterX, shFilterY, x, y, pixelData, outputPixelData);
     }
 }
 
@@ -240,7 +248,7 @@ int32_t filterImage(uint32_t imageWidth,
         checkCudaErrors(cudaMemcpy(d_pixelData, pixelData, imageSizeBytes, cudaMemcpyHostToDevice));
 
         // Apply filter (kernel)
-        dim3 blockSize(16, 16);
+        dim3 blockSize(BLOCK_SIZE_X, BLOCK_SIZE_Y);
         dim3 gridSize(ceil((double) imageWidth / blockSize.x), ceil((double) imageHeight / blockSize.y));
 
         if(useGlobalMem)
