@@ -89,8 +89,8 @@ void applyFilterCPU(uint32_t imageWidth,
 }
 
 /**
- * Creates an image with highlighted edges by
- * applying a filter to the pixel data
+ * Creates an image with highlighted edges by applying
+ * a filter to the pixel data using global memory
  *
  * @param imageWidth      The width of the image to write
  * @param imageHeight     The height of the image to write
@@ -206,7 +206,7 @@ int32_t filterImage(uint32_t imageWidth,
             break;
         default:
             std::cerr << "Invalid filter type!" << std::endl;
-            break;
+            return EXIT_FAILURE;
     }
 
     // Check to see if using the CPU

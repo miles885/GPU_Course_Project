@@ -37,102 +37,6 @@ int32_t parseCmdArgs(int32_t argc, char ** argv, std::string & fileName)
 }
 
 /**
- * Converts pixel data to grayscale or HSV and 
- * applies a filter using the CPU or GPU
- *
- * @param imageWidth     The width of the image to write
- * @param imageHeight    The height of the image to write
- * @param bitsPerPixel   The bits per pixel of the image to write
- * @param pixelData      The channel-separated pixel data
- * @param filter         The type of image filter to use
- * @param outputFilename The output file name
- * @param outputFormat   The output file format
- * @param pixelType      The type of pixel data to apply the filter to
- * @param useCPU         Flag denoting whether to use the CPU or GPU
- * @param useGlobalMem   Flag denoting whether to use global or shared memory on the GPU
- *
- * @return Flag denoting success or failure
- */
-__host__
-int32_t applyFilter(uint32_t imageWidth,
-                    uint32_t imageHeight,
-                    uint32_t bitsPerPixel,
-                    const BYTE * pixelData, 
-                    ImageFilter filter,
-                    const char * outputFilename, 
-                    const FREE_IMAGE_FORMAT & outputFormat, 
-                    PixelType pixelType, 
-                    bool useCPU, 
-                    bool useGlobalMem)
-{
-    uint32_t imageSize = imageWidth * imageHeight;
-
-    // Allocate grayscale pixel memory
-    BYTE * inputPixelData;
-    BYTE * outputPixelData;
-    
-    if(useCPU)
-    {
-        inputPixelData = new BYTE[imageSize];
-        outputPixelData = new BYTE[imageSize];
-    }
-    else
-    {
-        checkCudaErrors(cudaMallocHost((void **) &inputPixelData, sizeof(BYTE) * imageSize, cudaHostAllocDefault));
-        checkCudaErrors(cudaMallocHost((void **) &outputPixelData, sizeof(BYTE) * imageSize, cudaHostAllocDefault));
-    }
-
-    
-    int32_t status = 0;
-
-    // Check to see if converting RGB pixel data to grayscale
-    if(pixelType == GRAY)
-    {
-        status = rgbToGray(imageWidth, imageHeight, bitsPerPixel, pixelData, inputPixelData);
-    }
-    // Converting RGB pixel data to HSV
-    else
-    {
-        status = rgbToHSV(imageWidth, imageHeight, bitsPerPixel, pixelType, pixelData, inputPixelData);
-    }
-
-    if(status == EXIT_FAILURE)
-    {
-        return EXIT_FAILURE;
-    }
-
-    // Apply filter
-    status = filterImage(imageWidth, imageHeight, filter, inputPixelData, outputPixelData, useCPU, useGlobalMem);
-
-    if(status == EXIT_FAILURE)
-    {
-        return EXIT_FAILURE;
-    }
-
-    // Output results
-    status = saveImage(outputFilename, outputFormat, imageWidth, imageHeight, 8, outputPixelData);
-
-    if(status == EXIT_FAILURE)
-    {
-        return EXIT_FAILURE;
-    }
-
-    // Cleanup
-    if(useCPU)
-    {
-        delete [] inputPixelData;
-        delete [] outputPixelData;
-    }
-    else
-    {
-        checkCudaErrors(cudaFreeHost(inputPixelData));
-        checkCudaErrors(cudaFreeHost(outputPixelData));
-    }
-
-    return EXIT_SUCCESS;
-}
-
-/**
  * Outputs the pixel data before filters are applied
  *
  * @param imageWidth     The width of the image to write
@@ -217,6 +121,244 @@ int32_t outputPixelData(uint32_t imageWidth,
 }
 
 /**
+ * Converts pixel data to grayscale or HSV and 
+ * applies a filter using the CPU or GPU
+ *
+ * @param imageWidth     The width of the image to write
+ * @param imageHeight    The height of the image to write
+ * @param bitsPerPixel   The bits per pixel of the image to write
+ * @param pixelData      The channel-separated pixel data
+ * @param filter         The type of image filter to use
+ * @param outputFilename The output file name
+ * @param outputFormat   The output file format
+ * @param pixelType      The type of pixel data to apply the filter to
+ * @param useCPU         Flag denoting whether to use the CPU or GPU
+ * @param useGlobalMem   Flag denoting whether to use global or shared memory on the GPU
+ *
+ * @return Flag denoting success or failure
+ */
+__host__
+int32_t convAndFilterImage(uint32_t imageWidth,
+                           uint32_t imageHeight,
+                           uint32_t bitsPerPixel,
+                           const BYTE * pixelData, 
+                           ImageFilter filter,
+                           const char * outputFilename, 
+                           const FREE_IMAGE_FORMAT & outputFormat, 
+                           PixelType pixelType, 
+                           bool useCPU, 
+                           bool useGlobalMem)
+{
+    uint32_t imageSize = imageWidth * imageHeight;
+
+    // Allocate grayscale pixel memory
+    BYTE * inputPixelData;
+    BYTE * outputPixelData;
+    
+    if(useCPU)
+    {
+        inputPixelData = new BYTE[imageSize];
+        outputPixelData = new BYTE[imageSize];
+    }
+    else
+    {
+        checkCudaErrors(cudaMallocHost((void **) &inputPixelData, sizeof(BYTE) * imageSize, cudaHostAllocDefault));
+        checkCudaErrors(cudaMallocHost((void **) &outputPixelData, sizeof(BYTE) * imageSize, cudaHostAllocDefault));
+    }
+
+    
+    int32_t status = 0;
+
+    // Check to see if converting RGB pixel data to grayscale
+    if(pixelType == GRAY)
+    {
+        status = rgbToGray(imageWidth, imageHeight, bitsPerPixel, pixelData, inputPixelData);
+    }
+    // Converting RGB pixel data to HSV
+    else
+    {
+        status = rgbToHSV(imageWidth, imageHeight, bitsPerPixel, pixelType, pixelData, inputPixelData);
+    }
+
+    if(status == EXIT_FAILURE)
+    {
+        return EXIT_FAILURE;
+    }
+
+    // Apply filter
+    status = filterImage(imageWidth, imageHeight, filter, inputPixelData, outputPixelData, useCPU, useGlobalMem);
+
+    if(status == EXIT_FAILURE)
+    {
+        return EXIT_FAILURE;
+    }
+
+    // Output results
+    status = saveImage(outputFilename, outputFormat, imageWidth, imageHeight, 8, outputPixelData);
+
+    if(status == EXIT_FAILURE)
+    {
+        return EXIT_FAILURE;
+    }
+
+    // Cleanup
+    if(useCPU)
+    {
+        delete [] inputPixelData;
+        delete [] outputPixelData;
+    }
+    else
+    {
+        checkCudaErrors(cudaFreeHost(inputPixelData));
+        checkCudaErrors(cudaFreeHost(outputPixelData));
+    }
+
+    return EXIT_SUCCESS;
+}
+
+/**
+ * Applies each filter type by converting pixel data to 
+ * grayscale or HSV and applies a filter using the CPU or GPU
+ *
+ * @param imageWidth     The width of the image to write
+ * @param imageHeight    The height of the image to write
+ * @param bitsPerPixel   The bits per pixel of the image to write
+ * @param pixelData      The channel-separated pixel data
+ * @param filter         The type of image filter to use
+ * @param outputFilename The output file name
+ * @param outputFormat   The output file format
+ * @param pixelType      The type of pixel data to apply the filter to
+ * @param useCPU         Flag denoting whether to use the CPU or GPU
+ * @param useGlobalMem   Flag denoting whether to use global or shared memory on the GPU
+ *
+ * @return Flag denoting success or failure
+ */
+int32_t applyAllFilters(uint32_t imageWidth,
+                        uint32_t imageHeight,
+                        uint32_t bitsPerPixel,
+                        const BYTE * pixelData, 
+                        const FREE_IMAGE_FORMAT & outputFormat, 
+                        PixelType pixelType,
+                        bool useCPU,
+                        bool useGlobalMem)
+{
+    // Set the output filename
+    std::string robertsFilename = "ROBERTS";
+    std::string sobelFilename = "SOBEL";
+    std::string prewittFilename = "PREWITT";
+
+    switch(pixelType)
+    {
+        case GRAY:
+            robertsFilename += "_GRAY";
+            sobelFilename += "_GRAY";
+            prewittFilename += "_GRAY";
+            break;
+        case HUE:
+            robertsFilename += "_HUE";
+            sobelFilename += "_HUE";
+            prewittFilename += "_HUE";
+            break;
+        case SATURATION:
+            robertsFilename += "_SATURATION";
+            sobelFilename += "_SATURATION";
+            prewittFilename += "_SATURATION";
+            break;
+        case VALUE:
+            robertsFilename += "_VALUE";
+            sobelFilename += "_VALUE";
+            prewittFilename += "_VALUE";
+            break;
+        default:
+            std::cerr << "Invalid pixel type!" << std::endl;
+            return EXIT_FAILURE;
+    }
+
+    if(useCPU)
+    {
+        robertsFilename += "_CPU";
+        sobelFilename += "_CPU";
+        prewittFilename += "_CPU";
+    }
+    else
+    {
+        robertsFilename += "_GPU";
+        sobelFilename += "_GPU";
+        prewittFilename += "_GPU";
+
+        if(useGlobalMem)
+        {
+            robertsFilename += "_GLOBAL";
+            sobelFilename += "_GLOBAL";
+            prewittFilename += "_GLOBAL";
+        }
+        else
+        {
+            robertsFilename += "_SHARED";
+            sobelFilename += "_SHARED";
+            prewittFilename += "_SHARED";
+        }
+    }
+
+    robertsFilename += ".png";
+    sobelFilename += ".png";
+    prewittFilename += ".png";
+
+    // Apply Roberts filter
+    int32_t status = convAndFilterImage(imageWidth, 
+                                        imageHeight, 
+                                        bitsPerPixel, 
+                                        pixelData, 
+                                        ROBERTS, 
+                                        robertsFilename.c_str(), 
+                                        outputFormat, 
+                                        pixelType, 
+                                        useCPU, 
+                                        useGlobalMem);
+
+    if(status == EXIT_FAILURE)
+    {
+        return EXIT_FAILURE;
+    }
+
+    // Apply Sobel filter
+    status = convAndFilterImage(imageWidth, 
+                                imageHeight, 
+                                bitsPerPixel, 
+                                pixelData, 
+                                SOBEL, 
+                                sobelFilename.c_str(), 
+                                outputFormat, 
+                                pixelType, 
+                                useCPU, 
+                                useGlobalMem);
+
+    if(status == EXIT_FAILURE)
+    {
+        return EXIT_FAILURE;
+    }
+
+    // Apply Prewitt filter
+    status = convAndFilterImage(imageWidth, 
+                                imageHeight, 
+                                bitsPerPixel, 
+                                pixelData, 
+                                PREWITT, 
+                                prewittFilename.c_str(), 
+                                outputFormat, 
+                                pixelType, 
+                                useCPU, 
+                                useGlobalMem);
+
+    if(status == EXIT_FAILURE)
+    {
+        return EXIT_FAILURE;
+    }
+
+    return EXIT_SUCCESS;
+}
+
+/**
  * Entry point to the application
  *
  * @param argc The number of command-line arguments
@@ -271,7 +413,7 @@ int32_t main(int32_t argc, char ** argv)
     uint32_t imageHeight;
     uint32_t bitsPerPixel;
 
-    printf("***** Image Info *****\n");
+    std::cout << "***** Image Info *****" << std::endl;
 
     status = getImageInfo(&bitmap, imageWidth, imageHeight, bitsPerPixel);
 
@@ -324,24 +466,9 @@ int32_t main(int32_t argc, char ** argv)
     /**************************************************************************
      * Apply filters to RGB pixel values on CPU
      **************************************************************************/
-    // Apply Roberts filter
-    status = applyFilter(imageWidth, imageHeight, bitsPerPixel, pixelData, ROBERTS, "roberts_gray_output_CPU.png", format, GRAY, true, true);
+    std::cout << "***** RGB CPU Results *****" << std::endl;
 
-    if(status == EXIT_FAILURE)
-    {
-        return EXIT_FAILURE;
-    }
-
-    // Apply Sobel filter
-    status = applyFilter(imageWidth, imageHeight, bitsPerPixel, pixelData, SOBEL, "sobel_gray_output_CPU.png", format, GRAY, true, true);
-
-    if(status == EXIT_FAILURE)
-    {
-        return EXIT_FAILURE;
-    }
-
-    // Apply Prewitt filter
-    status = applyFilter(imageWidth, imageHeight, bitsPerPixel, pixelData, PREWITT, "prewitt_gray_output_CPU.png", format, GRAY, true, true);
+    status = applyAllFilters(imageWidth, imageHeight, bitsPerPixel, pixelData, format, GRAY, true, true);
 
     if(status == EXIT_FAILURE)
     {
@@ -351,24 +478,18 @@ int32_t main(int32_t argc, char ** argv)
     /**************************************************************************
      * Apply filters to RGB pixel values on GPU
      **************************************************************************/
-    // Apply Roberts filter
-    status = applyFilter(imageWidth, imageHeight, bitsPerPixel, pixelData, ROBERTS, "roberts_gray_output_GPU.png", format, GRAY, false, true);
+    std::cout << "***** RGB GPU Results *****" << std::endl;
+
+    // Use global memory
+    status = applyAllFilters(imageWidth, imageHeight, bitsPerPixel, pixelData, format, GRAY, false, true);
 
     if(status == EXIT_FAILURE)
     {
         return EXIT_FAILURE;
     }
 
-    // Apply Sobel filter
-    status = applyFilter(imageWidth, imageHeight, bitsPerPixel, pixelData, SOBEL, "sobel_gray_output_GPU.png", format, GRAY, false, true);
-
-    if(status == EXIT_FAILURE)
-    {
-        return EXIT_FAILURE;
-    }
-
-    // Apply Prewitt filter
-    status = applyFilter(imageWidth, imageHeight, bitsPerPixel, pixelData, PREWITT, "prewitt_gray_output_GPU.png", format, GRAY, false, true);
+    // Use shared memory
+    status = applyAllFilters(imageWidth, imageHeight, bitsPerPixel, pixelData, format, GRAY, false, false);
 
     if(status == EXIT_FAILURE)
     {
@@ -378,72 +499,26 @@ int32_t main(int32_t argc, char ** argv)
     /**************************************************************************
      * Apply filters to HSV channels on CPU
      **************************************************************************/
-    // Apply Roberts filter to hue channel
-    status = applyFilter(imageWidth, imageHeight, bitsPerPixel, pixelData, ROBERTS, "roberts_hue_output_CPU.png", format, HUE, true, true);
+    std::cout << "***** HSV CPU Results *****" << std::endl;
+
+    // Apply filters on hue channel
+    status = applyAllFilters(imageWidth, imageHeight, bitsPerPixel, pixelData, format, HUE, true, true);
 
     if(status == EXIT_FAILURE)
     {
         return EXIT_FAILURE;
     }
 
-    // Apply Roberts filter to saturation channel
-    status = applyFilter(imageWidth, imageHeight, bitsPerPixel, pixelData, ROBERTS, "roberts_sat_output_CPU.png", format, SATURATION, true, true);
+    // Apply filters on saturation channel
+    status = applyAllFilters(imageWidth, imageHeight, bitsPerPixel, pixelData, format, SATURATION, true, true);
 
     if(status == EXIT_FAILURE)
     {
         return EXIT_FAILURE;
     }
 
-    // Apply Roberts filter to value channel
-    status = applyFilter(imageWidth, imageHeight, bitsPerPixel, pixelData, ROBERTS, "roberts_value_output_CPU.png", format, VALUE, true, true);
-
-    if(status == EXIT_FAILURE)
-    {
-        return EXIT_FAILURE;
-    }
-
-    // Apply Sobel filter to hue channel
-    status = applyFilter(imageWidth, imageHeight, bitsPerPixel, pixelData, SOBEL, "sobel_hue_output_CPU.png", format, HUE, true, true);
-
-    if(status == EXIT_FAILURE)
-    {
-        return EXIT_FAILURE;
-    }
-
-    // Apply Sobel filter to saturation channel
-    status = applyFilter(imageWidth, imageHeight, bitsPerPixel, pixelData, SOBEL, "sobel_sat_output_CPU.png", format, SATURATION, true, true);
-
-    if(status == EXIT_FAILURE)
-    {
-        return EXIT_FAILURE;
-    }
-
-    // Apply Sobel filter to value channel
-    status = applyFilter(imageWidth, imageHeight, bitsPerPixel, pixelData, SOBEL, "sobel_value_output_CPU.png", format, VALUE, true, true);
-
-    if(status == EXIT_FAILURE)
-    {
-        return EXIT_FAILURE;
-    }
-
-    // Apply Prewitt filter to hue channel
-    status = applyFilter(imageWidth, imageHeight, bitsPerPixel, pixelData, PREWITT, "prewitt_hue_output_CPU.png", format, HUE, true, true);
-
-    if(status == EXIT_FAILURE)
-    {
-        return EXIT_FAILURE;
-    }
-
-    // Apply Prewitt filter to saturation channel
-    status = applyFilter(imageWidth, imageHeight, bitsPerPixel, pixelData, PREWITT, "prewitt_sat_output_CPU.png", format, SATURATION, true, true);
-
-    if(status == EXIT_FAILURE)
-    {
-        return EXIT_FAILURE;
-    }
-
-    // Apply Prewitt filter to value channel
-    status = applyFilter(imageWidth, imageHeight, bitsPerPixel, pixelData, PREWITT, "prewitt_value_output_CPU.png", format, VALUE, true, true);
+    // Apply filters on value channel
+    status = applyAllFilters(imageWidth, imageHeight, bitsPerPixel, pixelData, format, VALUE, true, true);
 
     if(status == EXIT_FAILURE)
     {
@@ -453,72 +528,50 @@ int32_t main(int32_t argc, char ** argv)
     /**************************************************************************
      * Apply filters to HSV channels on GPU
      **************************************************************************/
-    // Apply Roberts filter to hue channel
-    status = applyFilter(imageWidth, imageHeight, bitsPerPixel, pixelData, ROBERTS, "roberts_hue_output_GPU.png", format, HUE, false, true);
+    std::cout << "***** HSV GPU Results *****" << std::endl;
+
+    // Apply filters on hue channel using global memory
+    status = applyAllFilters(imageWidth, imageHeight, bitsPerPixel, pixelData, format, HUE, false, true);
 
     if(status == EXIT_FAILURE)
     {
         return EXIT_FAILURE;
     }
 
-    // Apply Roberts filter to saturation channel
-    status = applyFilter(imageWidth, imageHeight, bitsPerPixel, pixelData, ROBERTS, "roberts_sat_output_GPU.png", format, SATURATION, false, true);
+    // Apply filters on saturation channel using global memory
+    status = applyAllFilters(imageWidth, imageHeight, bitsPerPixel, pixelData, format, SATURATION, false, true);
 
     if(status == EXIT_FAILURE)
     {
         return EXIT_FAILURE;
     }
 
-    // Apply Roberts filter to value channel
-    status = applyFilter(imageWidth, imageHeight, bitsPerPixel, pixelData, ROBERTS, "roberts_value_output_GPU.png", format, VALUE, false, true);
+    // Apply filters on value channel using global memory
+    status = applyAllFilters(imageWidth, imageHeight, bitsPerPixel, pixelData, format, VALUE, false, true);
 
     if(status == EXIT_FAILURE)
     {
         return EXIT_FAILURE;
     }
 
-    // Apply Sobel filter to hue channel
-    status = applyFilter(imageWidth, imageHeight, bitsPerPixel, pixelData, SOBEL, "sobel_hue_output_GPU.png", format, HUE, false, true);
+    // Apply filters on hue channel using shared memory
+    status = applyAllFilters(imageWidth, imageHeight, bitsPerPixel, pixelData, format, HUE, false, false);
 
-    if(status == EXIT_FAILURE)
+    if (status == EXIT_FAILURE)
     {
         return EXIT_FAILURE;
     }
 
-    // Apply Sobel filter to saturation channel
-    status = applyFilter(imageWidth, imageHeight, bitsPerPixel, pixelData, SOBEL, "sobel_sat_output_GPU.png", format, SATURATION, false, true);
+    // Apply filters on saturation channel using shared memory
+    status = applyAllFilters(imageWidth, imageHeight, bitsPerPixel, pixelData, format, SATURATION, false, false);
 
-    if(status == EXIT_FAILURE)
+    if (status == EXIT_FAILURE)
     {
         return EXIT_FAILURE;
     }
 
-    // Apply Sobel filter to value channel
-    status = applyFilter(imageWidth, imageHeight, bitsPerPixel, pixelData, SOBEL, "sobel_value_output_GPU.png", format, VALUE, false, true);
-
-    if(status == EXIT_FAILURE)
-    {
-        return EXIT_FAILURE;
-    }
-
-    // Apply Prewitt filter to hue channel
-    status = applyFilter(imageWidth, imageHeight, bitsPerPixel, pixelData, PREWITT, "prewitt_hue_output_GPU.png", format, HUE, false, true);
-
-    if(status == EXIT_FAILURE)
-    {
-        return EXIT_FAILURE;
-    }
-
-    // Apply Prewitt filter to saturation channel
-    status = applyFilter(imageWidth, imageHeight, bitsPerPixel, pixelData, PREWITT, "prewitt_sat_output_GPU.png", format, SATURATION, false, true);
-
-    if(status == EXIT_FAILURE)
-    {
-        return EXIT_FAILURE;
-    }
-
-    // Apply Prewitt filter to value channel
-    status = applyFilter(imageWidth, imageHeight, bitsPerPixel, pixelData, PREWITT, "prewitt_value_output_GPU.png", format, VALUE, false, true);
+    // Apply filters on value channel using shared memory
+    status = applyAllFilters(imageWidth, imageHeight, bitsPerPixel, pixelData, format, VALUE, false, false);
 
     if(status == EXIT_FAILURE)
     {
