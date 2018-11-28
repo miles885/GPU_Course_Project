@@ -9,6 +9,56 @@
 //      under the "Pseduocode implementation" section
 
 /**
+ * Applies a filter to the pixels located 
+ * around the specified x and y coordinate
+ *
+ * @param imageWidth      The width of the image to write
+ * @param imageHeight     The height of the image to write
+ * @param filterX         The x dimension filter data
+ * @param filterY         The y dimension filter data
+ * @param x               The x coordinate of the pixel
+ * @param y               The y coordinate of the pixel
+ * @param pixelData       The input array of pixel data
+ * @param outputPixelData The output array of pixel data
+ *
+ * @return None
+ */
+__host__
+__device__
+void applyFilter(uint32_t imageWidth, 
+                 uint32_t imageHeight, 
+                 const int32_t * filterX, 
+                 const int32_t * filterY, 
+                 int32_t x, 
+                 int32_t y, 
+                 const BYTE * pixelData, 
+                 BYTE * outputPixelData)
+{
+    uint32_t topRowOffset = ((y - 1) * imageWidth) + x;
+    uint32_t midRowOffset = (y * imageWidth) + x;
+    uint32_t botRowOffset = ((y + 1) * imageWidth) + x;
+
+    int32_t topRow[3] = {pixelData[topRowOffset - 1], pixelData[topRowOffset], pixelData[topRowOffset + 1]};
+    int32_t midRow[3] = {pixelData[midRowOffset - 1], pixelData[midRowOffset], pixelData[midRowOffset + 1]};
+    int32_t botRow[3] = {pixelData[botRowOffset - 1], pixelData[botRowOffset], pixelData[botRowOffset + 1]};
+
+    int32_t pixelX = (filterX[0] * topRow[0]) + (filterX[1] * topRow[1]) + (filterX[2] * topRow[2]) +
+                     (filterX[3] * midRow[0]) + (filterX[4] * midRow[1]) + (filterX[5] * midRow[2]) +
+                     (filterX[6] * botRow[0]) + (filterX[7] * botRow[1]) + (filterX[8] * botRow[2]);
+
+    int32_t pixelY = (filterY[0] * topRow[0]) + (filterY[1] * topRow[1]) + (filterY[2] * topRow[2]) +
+                     (filterY[3] * midRow[0]) + (filterY[4] * midRow[1]) + (filterY[5] * midRow[2]) +
+                     (filterY[6] * botRow[0]) + (filterY[7] * botRow[1]) + (filterY[8] * botRow[2]);
+
+    // Calculate magnitude (must use float version with Cuda)
+    int32_t mag = sqrt((float) (pixelX * pixelX) + (float) (pixelY * pixelY));
+
+    // Set output pixel value
+    //TODO: Use some pixel threshold for better results?
+    outputPixelData[(y * imageWidth) + x] = mag;
+}
+
+/**
  * Creates an image with highlighted edges by
  * applying a filter to the pixel data
  *
@@ -33,28 +83,7 @@ void applyFilterCPU(uint32_t imageWidth,
     {
         for(uint32_t x = 1; x < (imageWidth - 1); x++)
         {
-            uint32_t topRowOffset = ((y - 1) * imageWidth) + x;
-            uint32_t midRowOffset = (y * imageWidth) + x;
-            uint32_t botRowOffset = ((y + 1) * imageWidth) + x;
-
-            int32_t topRow[3] = {pixelData[topRowOffset - 1], pixelData[topRowOffset], pixelData[topRowOffset + 1]};
-            int32_t midRow[3] = {pixelData[midRowOffset - 1], pixelData[midRowOffset], pixelData[midRowOffset + 1]};
-            int32_t botRow[3] = {pixelData[botRowOffset - 1], pixelData[botRowOffset], pixelData[botRowOffset + 1]};
-
-            int32_t pixelX = (filterX[0] * topRow[0]) + (filterX[1] * topRow[1]) + (filterX[2] * topRow[2]) +
-                             (filterX[3] * midRow[0]) + (filterX[4] * midRow[1]) + (filterX[5] * midRow[2]) +
-                             (filterX[6] * botRow[0]) + (filterX[7] * botRow[1]) + (filterX[8] * botRow[2]);
-            
-            int32_t pixelY = (filterY[0] * topRow[0]) + (filterY[1] * topRow[1]) + (filterY[2] * topRow[2]) +
-                             (filterY[3] * midRow[0]) + (filterY[4] * midRow[1]) + (filterY[5] * midRow[2]) +
-                             (filterY[6] * botRow[0]) + (filterY[7] * botRow[1]) + (filterY[8] * botRow[2]);
-            
-            // Calculate magnitude
-            int32_t mag = sqrt((pixelX * pixelX) + (pixelY * pixelY));
-
-            // Set output pixel value
-            //TODO: Use some pixel threshold for better results?
-            outputPixelData[(y * imageWidth) + x] = mag;
+            applyFilter(imageWidth, imageHeight, filterX, filterY, x, y, pixelData, outputPixelData);
         }
     }
 }
@@ -73,12 +102,45 @@ void applyFilterCPU(uint32_t imageWidth,
  * @return None
  */
 __global__
-void applyFilterGPU(uint32_t imageWidth, 
-                    uint32_t imageHeight, 
-                    const int32_t * filterX, 
-                    const int32_t * filterY, 
-                    const BYTE * pixelData, 
-                    BYTE * outputPixelData)
+void applyFilterGlobalGPU(uint32_t imageWidth, 
+                          uint32_t imageHeight, 
+                          const int32_t * filterX, 
+                          const int32_t * filterY, 
+                          const BYTE * pixelData, 
+                          BYTE * outputPixelData)
+{
+    // Retrieve the thread index
+    const uint32_t x = (blockIdx.x * blockDim.x) + threadIdx.x;
+    const uint32_t y = (blockIdx.y * blockDim.y) + threadIdx.y;
+
+    // Check to make sure not at edge of image
+    if(x > 0 && x < imageWidth && y > 0 && y < imageHeight)
+    {
+        // Apply the filter
+        applyFilter(imageWidth, imageHeight, filterX, filterY, x, y, pixelData, outputPixelData);
+    }
+}
+
+/**
+* Creates an image with highlighted edges by applying
+* a filter to the pixel data using shared memory
+*
+* @param imageWidth      The width of the image to write
+* @param imageHeight     The height of the image to write
+* @param filterX         The x dimension filter data
+* @param filterY         The y dimension filter data
+* @param pixelData       The input array of pixel data
+* @param outputPixelData The output array of pixel data
+*
+* @return None
+*/
+__global__
+void applyFilterSharedGPU(uint32_t imageWidth,
+                          uint32_t imageHeight,
+                          const int32_t * filterX, 
+                          const int32_t * filterY, 
+                          const BYTE * pixelData, 
+                          BYTE * outputPixelData)
 {
     // Retrieve the thread index
     const uint32_t x = (blockIdx.x * blockDim.x) + threadIdx.x;
@@ -86,31 +148,13 @@ void applyFilterGPU(uint32_t imageWidth,
 
     //TODO: Put filter data into shared memory
 
+    //__syncthreads();
+
     // Check to make sure not at edge of image
     if(x > 0 && x < imageWidth && y > 0 && y < imageHeight)
     {
-        uint32_t topRowOffset = ((y - 1) * imageWidth) + x;
-        uint32_t midRowOffset = (y * imageWidth) + x;
-        uint32_t botRowOffset = ((y + 1) * imageWidth) + x;
-        
-        int32_t topRow[3] = {pixelData[topRowOffset - 1], pixelData[topRowOffset], pixelData[topRowOffset + 1]};
-        int32_t midRow[3] = {pixelData[midRowOffset - 1], pixelData[midRowOffset], pixelData[midRowOffset + 1]};
-        int32_t botRow[3] = {pixelData[botRowOffset - 1], pixelData[botRowOffset], pixelData[botRowOffset + 1]};
-
-        int32_t pixelX = (filterX[0] * topRow[0]) + (filterX[1] * topRow[1]) + (filterX[2] * topRow[2]) +
-                         (filterX[3] * midRow[0]) + (filterX[4] * midRow[1]) + (filterX[5] * midRow[2]) +
-                         (filterX[6] * botRow[0]) + (filterX[7] * botRow[1]) + (filterX[8] * botRow[2]);
-        
-        int32_t pixelY = (filterY[0] * topRow[0]) + (filterY[1] * topRow[1]) + (filterY[2] * topRow[2]) +
-                         (filterY[3] * midRow[0]) + (filterY[4] * midRow[1]) + (filterY[5] * midRow[2]) +
-                         (filterY[6] * botRow[0]) + (filterY[7] * botRow[1]) + (filterY[8] * botRow[2]);
-        
-        // Calculate magnitude (must use float version with Cuda)
-        int32_t mag = sqrt((float) (pixelX * pixelX) + (float) (pixelY * pixelY));
-
-        // Set output pixel value
-        //TODO: Use some pixel threshold for better results?
-        outputPixelData[(y * imageWidth) + x] = mag;
+        // Apply the filter
+        applyFilter(imageWidth, imageHeight, filterX, filterY, x, y, pixelData, outputPixelData);
     }
 }
 
@@ -123,16 +167,18 @@ void applyFilterGPU(uint32_t imageWidth,
  * @param pixelData       The single channel pixel data
  * @param outputPixelData The filtered pixel data
  * @param useCPU          Flag denoting whether to use the CPU or GPU
+ * @param useGlobalMem    Flag denoting whether to use global or shared memory on the GPU
  *
  * @return Flag denoting success or failure
  */
 __host__
-int32_t applyFilter(uint32_t imageWidth, 
+int32_t filterImage(uint32_t imageWidth,
                     uint32_t imageHeight, 
                     ImageFilter filter, 
                     const BYTE * pixelData, 
                     BYTE * outputPixelData, 
-                    bool useCPU)
+                    bool useCPU, 
+                    bool useGlobalMem)
 {
     uint32_t imageSize = imageWidth * imageHeight;
 
@@ -197,7 +243,15 @@ int32_t applyFilter(uint32_t imageWidth,
         dim3 blockSize(16, 16);
         dim3 gridSize(ceil((double) imageWidth / blockSize.x), ceil((double) imageHeight / blockSize.y));
 
-        applyFilterGPU<<<gridSize, blockSize>>>(imageWidth, imageHeight, d_filterX, d_filterY, d_pixelData, d_outputPixelData);
+        if(useGlobalMem)
+        {
+            applyFilterGlobalGPU<<<gridSize, blockSize>>>(imageWidth, imageHeight, d_filterX, d_filterY, d_pixelData, d_outputPixelData);
+        }
+        else
+        {
+            applyFilterSharedGPU<<<gridSize, blockSize>>>(imageWidth, imageHeight, d_filterX, d_filterY, d_pixelData, d_outputPixelData);
+        }
+
         getLastCudaError("");
 
         // Copy device memory to host
@@ -205,6 +259,9 @@ int32_t applyFilter(uint32_t imageWidth,
         checkCudaErrors(cudaMemcpy(outputPixelData, d_outputPixelData, imageSizeBytes, cudaMemcpyDeviceToHost));
 
         // Cleanup
+        checkCudaErrors(cudaFree(d_filterX));
+        checkCudaErrors(cudaFree(d_filterY));
+
         checkCudaErrors(cudaFree(d_pixelData));
         checkCudaErrors(cudaFree(d_outputPixelData));
     }

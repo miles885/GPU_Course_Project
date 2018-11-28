@@ -51,6 +51,17 @@ enum ImageFilter
 };
 
 __host__
+__device__
+void applyFilter(uint32_t imageWidth, 
+                 uint32_t imageHeight, 
+                 const int32_t * filterX, 
+                 const int32_t * filterY, 
+                 int32_t x, 
+                 int32_t y, 
+                 const BYTE * pixelData, 
+                 BYTE * outputPixelData);
+
+__host__
 void applyFilterCPU(uint32_t imageWidth, 
                     uint32_t imageHeight, 
                     const int32_t * filterX, 
@@ -59,19 +70,28 @@ void applyFilterCPU(uint32_t imageWidth,
                     BYTE * outputPixelData);
 
 __global__
-void applyFilterGPU(uint32_t imageWidth, 
-                    uint32_t imageHeight, 
-                    const int32_t * filterX, 
-                    const int32_t * filterY, 
-                    const BYTE * pixelData, 
-                    BYTE * outputPixelData);
+void applyFilterGlobalGPU(uint32_t imageWidth, 
+                          uint32_t imageHeight, 
+                          const int32_t * filterX, 
+                          const int32_t * filterY, 
+                          const BYTE * pixelData, 
+                          BYTE * outputPixelData);
+
+__global__
+void applyFilterSharedGPU(uint32_t imageWidth,
+                          uint32_t imageHeight,
+                          const int32_t * filterX, 
+                          const int32_t * filterY, 
+                          const BYTE * pixelData, 
+                          BYTE * outputPixelData);
 
 __host__
-int32_t applyFilter(uint32_t imageWidth,
+int32_t filterImage(uint32_t imageWidth,
                     uint32_t imageHeight, 
                     ImageFilter filter, 
                     const BYTE * pixelData, 
                     BYTE * outputPixelData, 
-                    bool useCPU);
+                    bool useCPU, 
+                    bool useGlobalMem);
 
 #endif
