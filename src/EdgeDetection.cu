@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <iomanip>
 #include <iostream>
 #include <stdio.h>
 #include <string>
@@ -300,11 +301,10 @@ int32_t applyAllFilters(uint32_t imageWidth,
         }
     }
 
-    robertsFilename += ".png";
-    sobelFilename += ".png";
-    prewittFilename += ".png";
-
     // Apply Roberts filter
+    std::cout << std::setw(29) << robertsFilename;
+    robertsFilename += ".png";
+
     int32_t status = convAndFilterImage(imageWidth, 
                                         imageHeight, 
                                         bitsPerPixel, 
@@ -322,12 +322,15 @@ int32_t applyAllFilters(uint32_t imageWidth,
     }
 
     // Apply Sobel filter
+    std::cout << std::setw(29) << sobelFilename;
+    sobelFilename += ".png";
+
     status = convAndFilterImage(imageWidth, 
                                 imageHeight, 
                                 bitsPerPixel, 
                                 pixelData, 
                                 SOBEL, 
-                                sobelFilename.c_str(), 
+                                sobelFilename.c_str(),
                                 outputFormat, 
                                 pixelType, 
                                 useCPU, 
@@ -339,12 +342,15 @@ int32_t applyAllFilters(uint32_t imageWidth,
     }
 
     // Apply Prewitt filter
+    std::cout << std::setw(29) << prewittFilename;
+    prewittFilename += ".png";
+
     status = convAndFilterImage(imageWidth, 
                                 imageHeight, 
                                 bitsPerPixel, 
                                 pixelData, 
                                 PREWITT, 
-                                prewittFilename.c_str(), 
+                                prewittFilename.c_str(),
                                 outputFormat, 
                                 pixelType, 
                                 useCPU, 
@@ -475,6 +481,8 @@ int32_t main(int32_t argc, char ** argv)
         return EXIT_FAILURE;
     }
 
+    std::cout << std::endl;
+
     /**************************************************************************
      * Apply filters to RGB pixel values on GPU
      **************************************************************************/
@@ -495,6 +503,8 @@ int32_t main(int32_t argc, char ** argv)
     {
         return EXIT_FAILURE;
     }
+
+    std::cout << std::endl;
 
     /**************************************************************************
      * Apply filters to HSV channels on CPU
@@ -525,6 +535,8 @@ int32_t main(int32_t argc, char ** argv)
         return EXIT_FAILURE;
     }
 
+    std::cout << std::endl;
+
     /**************************************************************************
      * Apply filters to HSV channels on GPU
      **************************************************************************/
@@ -554,6 +566,8 @@ int32_t main(int32_t argc, char ** argv)
         return EXIT_FAILURE;
     }
 
+    std::cout << std::endl;
+
     // Apply filters on hue channel using shared memory
     status = applyAllFilters(imageWidth, imageHeight, bitsPerPixel, pixelData, format, HUE, false, false);
 
@@ -577,6 +591,8 @@ int32_t main(int32_t argc, char ** argv)
     {
         return EXIT_FAILURE;
     }
+
+    std::cout << std::endl;
 
     /*
      * Cleanup

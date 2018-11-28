@@ -1,5 +1,6 @@
 #include "ImageProc.h"
 
+#include <chrono>
 #include <iostream>
 
 #include "helper_cuda.h"
@@ -7,6 +8,24 @@
 //NOTE: A pseudocode implementation of the sobel algorithm was
 //      found at https://en.wikipedia.org/wiki/Sobel_operator
 //      under the "Pseduocode implementation" section
+
+/**
+ * Creates a CUDA event at the current time
+ *
+ * @param None
+ *
+ * @return time The cuda event for the current time
+ */
+__host__
+cudaEvent_t getTime()
+{
+    cudaEvent_t time;
+
+    cudaEventCreate(&time);
+    cudaEventRecord(time);
+
+    return time;
+}
 
 /**
  * Applies a filter to the pixels located 
@@ -220,13 +239,25 @@ int32_t filterImage(uint32_t imageWidth,
     // Check to see if using the CPU
     if(useCPU)
     {
+        // Start a timer
+        std::chrono::high_resolution_clock::time_point start = std::chrono::high_resolution_clock::now();
+
         // Apply filter
         applyFilterCPU(imageWidth, imageHeight, h_filterX, h_filterY, pixelData, outputPixelData);
+
+        // Stop the timer and output the duration
+        std::chrono::high_resolution_clock::time_point stop = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> dur = stop - start;
+
+        std::cout << " ellapsed time (ms): " << dur.count() * 1e3 << std::endl;
     }
     // Using the GPU
     else
     {
         uint32_t imageSizeBytes = sizeof(BYTE) * imageSize;
+
+        // Capture the start time
+        cudaEvent_t startTime = getTime();
 
         // Allocate device memory
         int32_t * d_filterX;
@@ -265,6 +296,17 @@ int32_t filterImage(uint32_t imageWidth,
         // Copy device memory to host
         checkCudaErrors(cudaDeviceSynchronize());
         checkCudaErrors(cudaMemcpy(outputPixelData, d_outputPixelData, imageSizeBytes, cudaMemcpyDeviceToHost));
+
+        // Capture the end time
+        cudaEvent_t stopTime = getTime();
+        cudaEventSynchronize(stopTime);
+
+        // Print the ellapsed time
+        float ellapsedTime = 0;
+
+        cudaEventElapsedTime(&ellapsedTime, startTime, stopTime);
+
+        std::cout << " ellapsed time (ms): " << ellapsedTime << std::endl;
 
         // Cleanup
         checkCudaErrors(cudaFree(d_filterX));
