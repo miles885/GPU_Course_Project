@@ -297,7 +297,7 @@ int32_t filterImage(uint32_t imageWidth,
         checkCudaErrors(cudaDeviceSynchronize());
         checkCudaErrors(cudaMemcpy(outputPixelData, d_outputPixelData, imageSizeBytes, cudaMemcpyDeviceToHost));
 
-        // Capture the end time
+        // Capture the stop time
         cudaEvent_t stopTime = getTime();
         cudaEventSynchronize(stopTime);
 
