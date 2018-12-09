@@ -496,6 +496,8 @@ int32_t main(int32_t argc, char ** argv)
         return EXIT_FAILURE;
     }
 
+    std::cout << std::endl;
+
     // Use shared memory
     status = applyAllFilters(imageWidth, imageHeight, bitsPerPixel, pixelData, format, GRAY, false, false);
 
